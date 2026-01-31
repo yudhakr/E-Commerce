@@ -30,7 +30,7 @@ Keterangan:
 1. Clone repository ke komputer lokal anda menggunakan perintah berikut:
    
 ```bash
-  git clone https://github.com/yudhakr/Submission_Analisis_Data_Python.git
+  git clone https://github.com/yudhakr/E-Commerce.git
    ```
 2. Lakukan Instalasi Kaggle dan Konfigurasi Kaggle Api:
    dengan cara sebagai berikut :
