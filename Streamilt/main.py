@@ -130,19 +130,32 @@ st.subheader("📈 Data Pembelian Order Setiap Bulan")
 
 if 'order_approved_at' in filtered_df.columns and 'order_id' in filtered_df.columns:
 
+    # Buat kolom bulan angka
+    filtered_df['month_num'] = filtered_df['order_approved_at'].dt.month
+
+    # Agregasi benar-benar per bulan
     monthly_df = (
-        filtered_df.resample('M', on='order_approved_at')
-        .agg({'order_id': 'count'})
-        .reset_index()
+        filtered_df
+        .groupby('month_num')['order_id']
+        .count()
+        .reset_index(name='order_count')
     )
 
-    monthly_df.rename(columns={'order_id': 'order_count'}, inplace=True)
+    # Mapping nama bulan
+    month_map = {
+        1:'January', 2:'February', 3:'March', 4:'April',
+        5:'May', 6:'June', 7:'July', 8:'August',
+        9:'September', 10:'October', 11:'November', 12:'December'
+    }
 
-    monthly_df['month'] = monthly_df['order_approved_at'].dt.strftime('%B')
-    monthly_df['month_num'] = monthly_df['order_approved_at'].dt.month
+    monthly_df['month'] = monthly_df['month_num'].map(month_map)
+
+    # Urutkan bulan
     monthly_df = monthly_df.sort_values('month_num')
 
+    # ====== PLOT ======
     fig, ax = plt.subplots(figsize=(10,5))
+
     ax.plot(
         monthly_df["month"],
         monthly_df["order_count"],
@@ -154,11 +167,13 @@ if 'order_approved_at' in filtered_df.columns and 'order_id' in filtered_df.colu
     ax.set_title("Number of Orders per Month", fontsize=18)
     ax.set_xlabel("Month")
     ax.set_ylabel("Total Orders")
+
     plt.xticks(rotation=25)
     plt.grid(alpha=0.3)
 
     st.pyplot(fig)
 
+    # ====== INSIGHT ======
     highest_month = monthly_df.loc[monthly_df['order_count'].idxmax(), 'month']
     lowest_month = monthly_df.loc[monthly_df['order_count'].idxmin(), 'month']
 
@@ -166,6 +181,8 @@ if 'order_approved_at' in filtered_df.columns and 'order_id' in filtered_df.colu
         f"Order tertinggi terjadi pada **{highest_month}**, "
         f"sementara order terendah terjadi pada **{lowest_month}**."
     )
+
+
 
 # ===============================
 # FOOTER
