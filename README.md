@@ -2,7 +2,7 @@
 
 ## Project Data Analytics
 
- Repositori yang berupa projek analis data ,yang dibuat dengan menggunakan **Streamlit** <img src="https://user-images.githubusercontent.com/7164864/217935870-c0bc60a3-6fc0-4047-b011-7b4c59488c91.png" alt="Streamlit logo"></img>
+ Repositori yang berupa projek analis data ,yang dibuat dengan menggunakan **Streamlit** 
 
 ## Deskripsi
 
@@ -32,10 +32,12 @@ Keterangan:
 ```bash
   git clone https://github.com/yudhakr/E-Commerce.git
    ```
-2. Lakukan Instalasi Kaggle dan Konfigurasi Kaggle Api:
+2. Lakukan Instalasi Konfigurasi requirements:
    dengan cara sebagai berikut :
    
-   [Kaggle Installation and API configuration](https://github.com/Kaggle/kaggle-api)
+   ```shell
+   pip install -r requirements.txt
+   ```
    
 4. Lakukan Instalasi Library Dengan Perintah Berikut:
 
