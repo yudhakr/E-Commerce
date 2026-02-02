@@ -1,5 +1,3 @@
 <<<<<<< HEAD
 https://e-commerce-yudhakr.streamlit.app/
-=======
-https://e-commerce-yudhakr.streamlit.app/
->>>>>>> 8802c93015d91070539f3c8d6c4a422edd46094e
+
