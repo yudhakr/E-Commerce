@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import plotly.express as px
+
 
 st.set_page_config(page_title="Dashboard Analisis E-Commerce", layout="wide")
 
@@ -57,17 +59,91 @@ end_date = pd.to_datetime(end_date)
 
 df_filtered = df[df["order_purchase_timestamp"].between(start_date, end_date)].copy()
 
-state_options = sorted(df["customer_state"].dropna().unique())
-selected_states = st.sidebar.multiselect(
-    "Filter State Pelanggan (opsional)",
-    state_options
+STATE_NAME_MAP = {
+    "AC": "Acre",
+    "AL": "Alagoas",
+    "AM": "Amazonas",
+    "AP": "Amapá",
+    "BA": "Bahia",
+    "CE": "Ceará",
+    "DF": "Distrito Federal",
+    "ES": "Espírito Santo",
+    "GO": "Goiás",
+    "MA": "Maranhão",
+    "MG": "Minas Gerais",
+    "MS": "Mato Grosso do Sul",
+    "MT": "Mato Grosso",
+    "PA": "Pará",
+    "PB": "Paraíba",
+    "PE": "Pernambuco",
+    "PI": "Piauí",
+    "PR": "Paraná",
+    "RJ": "Rio de Janeiro",
+    "RN": "Rio Grande do Norte",
+    "RO": "Rondônia",
+    "RR": "Roraima",
+    "RS": "Rio Grande do Sul",
+    "SC": "Santa Catarina",
+    "SE": "Sergipe",
+    "SP": "São Paulo",
+    "TO": "Tocantins"
+}
+# Ambil state yang benar-benar ada di data
+available_states = sorted(df["customer_state"].dropna().unique())
+
+# Buat label yang user-friendly
+state_labels = {
+    code: f"{STATE_NAME_MAP.get(code, code)} ({code})"
+    for code in available_states
+}
+
+# Dropdown multiselect (user lihat nama lengkap)
+selected_labels = st.sidebar.multiselect(
+    "Filter State Pelanggan",
+    options=list(state_labels.values())
 )
 
+# Konversi kembali ke kode state untuk filtering data
+selected_states = [
+    code for code, label in state_labels.items()
+    if label in selected_labels
+]
+
+# Terapkan filter
 if selected_states:
     df_filtered = df_filtered[df_filtered["customer_state"].isin(selected_states)]
 
-st.info(f"Menampilkan data dari {start_date.date()} sampai {end_date.date()}")
+# Filter kategori produk (opsional)
+cat_options = sorted(df["product_category_name"].dropna().unique())
+selected_cats = st.sidebar.multiselect(
+    "Filter Kategori Produk ",
+    options=cat_options,
+    default=[]
+)
 
+if selected_cats:
+    df_filtered = df_filtered[df_filtered["product_category_name"].isin(selected_cats)]
+
+
+
+# ============================
+# Filter tambahan (opsional)
+# ============================
+st.sidebar.subheader("Filter Tambahan (Opsional)")
+
+# Filter kategori produk (mempengaruhi Q1 & Q2)
+cat_options = sorted(df_filtered["product_category_name"].dropna().unique())
+selected_cats = st.sidebar.multiselect(
+    "Kategori Produk",
+    options=cat_options,
+    default=[]
+)
+
+top_n = st.sidebar.slider("Top/Bottom N", 3, 15, 5)
+
+df_use = df_filtered.copy()
+if selected_cats:
+    df_use = df_use[df_use["product_category_name"].isin(selected_cats)]
 
 # ======================================================
 # PERTANYAAN 1
@@ -78,31 +154,45 @@ st.subheader(
     "pada periode Januari–Desember 2017?"
 )
 
-df_2017 = df_filtered[
-    df_filtered["order_purchase_timestamp"].dt.year == 2017
-]
+df_2017 = df_use[df_use["order_purchase_timestamp"].dt.year == 2017].copy()
 
-trend_2017 = (
-    df_2017.set_index("order_purchase_timestamp")
-    .resample("M")
-    .agg(
-        total_orders=("order_id", "nunique"),
-        total_revenue=("revenue", "sum")
+if df_2017.empty:
+    st.warning("Data tahun 2017 tidak tersedia untuk filter yang dipilih.")
+else:
+    trend_2017 = (
+        df_2017.set_index("order_purchase_timestamp")
+        .resample("M")
+        .agg(
+            total_orders=("order_id", "nunique"),
+            total_revenue=("revenue", "sum")
+        )
+        .reset_index()
     )
-)
 
-fig, ax1 = plt.subplots(figsize=(10, 4))
-ax1.plot(trend_2017.index, trend_2017["total_orders"], marker="o")
-ax1.set_ylabel("Total Pesanan")
+    c1, c2 = st.columns(2)
 
-ax2 = ax1.twinx()
-ax2.plot(trend_2017.index, trend_2017["total_revenue"], marker="s", linestyle="--")
-ax2.set_ylabel("Total Revenue (R$)")
+    with c1:
+        fig_orders = px.line(
+            trend_2017,
+            x="order_purchase_timestamp",
+            y="total_orders",
+            markers=True,
+            title="Tren Jumlah Pesanan per Bulan"
+        )
+        fig_orders.update_layout(xaxis_title="Bulan", yaxis_title="Total Pesanan")
+        st.plotly_chart(fig_orders, use_container_width=True)
 
-plt.title("Tren Bulanan Pesanan & Revenue ")
-st.pyplot(fig)
+    with c2:
+        fig_rev = px.line(
+            trend_2017,
+            x="order_purchase_timestamp",
+            y="total_revenue",
+            markers=True,
+            title="Tren Total Revenue per Bulan"
+        )
+        fig_rev.update_layout(xaxis_title="Bulan", yaxis_title="Total Revenue (R$)")
+        st.plotly_chart(fig_rev, use_container_width=True)
 
-st.divider()
 
 # ======================================================
 # PERTANYAAN 2
@@ -110,36 +200,55 @@ st.divider()
 # ======================================================
 st.subheader(
     "2️⃣ Kategori produk apa yang paling banyak dan paling sedikit terjual "
-    "sepanjang tahun 2017?"
+    "sepanjang tahun 2017 berdasarkan total item yang terjual?"
 )
 
-product_sales_2017 = (
-    df_2017.dropna(subset=["product_category_name"])
-    .groupby("product_category_name")["order_item_id"]
-    .count()
-    .sort_values(ascending=False)
-)
+if df_2017.empty:
+    st.warning("Data tahun 2017 tidak tersedia untuk analisis kategori produk.")
+else:
+    product_sales_2017 = (
+        df_2017.dropna(subset=["product_category_name"])
+        .groupby("product_category_name")["order_item_id"]
+        .count()
+        .sort_values(ascending=False)
+    )
 
-top5 = product_sales_2017.head(5)
-bottom5 = product_sales_2017.sort_values().head(5)
+    if product_sales_2017.empty:
+        st.warning("Tidak ada kategori produk pada data yang difilter.")
+    else:
+        topN = product_sales_2017.head(top_n).reset_index()
+        topN.columns = ["product_category_name", "total_item_sold"]
 
-col1, col2 = st.columns(2)
+        bottomN = product_sales_2017.sort_values().head(top_n).reset_index()
+        bottomN.columns = ["product_category_name", "total_item_sold"]
 
-with col1:
-    st.markdown("**Top 5 Kategori Produk Terlaris**")
-    fig1, ax = plt.subplots(figsize=(6, 4))
-    ax.barh(top5.index[::-1], top5.values[::-1])
-    ax.set_xlabel("Jumlah Terjual")
-    st.pyplot(fig1)
+        col1, col2 = st.columns(2)
 
-with col2:
-    st.markdown("**5 Kategori Produk Paling Sedikit Terjual**")
-    fig2, ax = plt.subplots(figsize=(6, 4))
-    ax.barh(bottom5.index[::-1], bottom5.values[::-1])
-    ax.set_xlabel("Jumlah Terjual")
-    st.pyplot(fig2)
+        with col1:
+            st.markdown(f"**Top {top_n} Kategori Produk Terlaris**")
+            fig_top = px.bar(
+                topN.sort_values("total_item_sold"),
+                x="total_item_sold",
+                y="product_category_name",
+                orientation="h",
+                text="total_item_sold"
+            )
+            fig_top.update_layout(xaxis_title="Total Item Terjual", yaxis_title="Kategori")
+            st.plotly_chart(fig_top, use_container_width=True)
 
-st.divider()
+        with col2:
+            st.markdown(f"**Bottom {top_n} Kategori Produk Paling Sedikit Terjual**")
+            fig_bottom = px.bar(
+                bottomN.sort_values("total_item_sold"),
+                x="total_item_sold",
+                y="product_category_name",
+                orientation="h",
+                text="total_item_sold"
+            )
+            fig_bottom.update_layout(xaxis_title="Total Item Terjual", yaxis_title="Kategori")
+            st.plotly_chart(fig_bottom, use_container_width=True)
+
+  
 
 # ======================================================
 # PERTANYAAN 3
@@ -149,20 +258,26 @@ st.subheader(
     "3️⃣ Bagaimana demografi pelanggan pada tahun 2018?"
 )
 
-df_2018 = df_filtered[
-    df_filtered["order_purchase_timestamp"].dt.year == 2018
-]
+df_2018 = df_use[df_use["order_purchase_timestamp"].dt.year == 2018].copy()
 
-customer_state_2018 = (
-    df_2018.groupby("customer_state")["customer_unique_id"]
-    .nunique()
-    .sort_values(ascending=False)
-    .head(10)
-)
+if df_2018.empty:
+    st.warning("Data tahun 2018 tidak tersedia untuk filter yang dipilih.")
+else:
+    customer_state_2018 = (
+        df_2018.groupby("customer_state")["customer_unique_id"]
+        .nunique()
+        .sort_values(ascending=False)
+        .head(10)
+        .reset_index()
+    )
+    customer_state_2018.columns = ["customer_state", "unique_customers"]
 
-fig3, ax = plt.subplots(figsize=(10, 4))
-ax.bar(customer_state_2018.index, customer_state_2018.values)
-ax.set_xlabel("State")
-ax.set_ylabel("Jumlah Pelanggan (unik)")
-ax.set_title("Top 10 Distribusi Pelanggan Berdasarkan State")
-st.pyplot(fig3)
+    fig_q3 = px.bar(
+        customer_state_2018,
+        x="customer_state",
+        y="unique_customers",
+        title="Top 10 Distribusi Pelanggan Berdasarkan State"
+    )
+    fig_q3.update_layout(xaxis_title="State", yaxis_title="Jumlah Pelanggan (unik)")
+    st.plotly_chart(fig_q3, use_container_width=True)
+
