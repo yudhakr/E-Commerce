@@ -51,7 +51,7 @@ Keterangan:
 
     ```shell
     cd streamlit
-    streamlit run main.py
+   streamlit run dashboard.py
     ```
 2. Melakukan Akses dan Kompilasi(Local):
    ```shell
